@@ -1,4 +1,4 @@
-# ReservaLab
+# Sistema de Reservas de Laboratórios UNI-CET
 
 Aplicação institucional para reservas de laboratórios, construída com Next.js, TypeScript, Prisma e PostgreSQL. Os registros de laboratórios, usuários, agenda e reservas são persistidos no PostgreSQL.
 
