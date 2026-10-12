@@ -1,4 +1,4 @@
-# CETRes — relatório de auditoria de segurança
+# Relatório de auditoria de segurança
 
 **Data:** 12/10/2026  
 **Escopo:** revisão estática do código e configuração, mais consultas somente de leitura aos metadados do PostgreSQL.  
