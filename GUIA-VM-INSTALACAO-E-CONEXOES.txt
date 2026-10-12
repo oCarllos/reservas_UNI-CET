@@ -1,0 +1,156 @@
+RESERVALAB — GUIA PARA VM, INSTALAÇÃO E CONEXÕES
+============================================================
+Data de referência: 12/10/2026
+
+1. ESTÁ PRONTO PARA UMA VM?
+---------------------------
+O sistema usa tecnologias compatíveis com uma VM no Proxmox: Node.js,
+Next.js e PostgreSQL. A aplicação pode rodar em Linux, com o PostgreSQL na
+mesma VM ou em outro servidor acessível pela rede.
+
+Ainda não considero esta cópia pronta para publicar em produção ou no GitHub:
+- Esta pasta não está configurada como repositório Git e não tem um remoto
+  GitHub cadastrado.
+- A última tentativa de build falhou ao gerar o cliente Prisma no Windows,
+  com erro EPERM ao renomear o arquivo da engine. Isso costuma acontecer
+  quando o arquivo está em uso ou bloqueado. A compilação da aplicação não
+  chegou a começar, então o resultado não confirma nem reprova o código.
+- O .env contém segredos e não pode ser enviado ao GitHub. O .gitignore foi
+  reforçado para ignorar arquivos .env*, mantendo somente .env.example.
+- Para produção, deve-se criar um usuário próprio do PostgreSQL para a
+  aplicação, em vez de conectar como o superusuário postgres.
+- O README recomenda usar Prisma Migrate em produção; o fluxo local atual
+  usa db push. A estratégia de migração deve ser definida antes da implantação.
+- A restrição que impede reservas sobrepostas depende da extensão
+  PostgreSQL btree_gist e deve ser aplicada na instalação.
+
+2. MÁQUINA VIRTUAL SUGERIDA
+---------------------------
+- Hipervisor: Proxmox VE.
+- Sistema operacional convidado: Ubuntu Server LTS 64 bits ou Debian estável.
+- CPU/memória/disco devem ser dimensionados conforme quantidade de usuários,
+  retenção de histórico e política de backup da instituição.
+- A VM precisa de endereço IP estável na rede institucional.
+- Configure DNS e HTTPS por meio do proxy reverso institucional, se houver.
+
+3. O QUE INSTALAR NA VM
+-----------------------
+- Sistema operacional atualizado e ferramentas de administração SSH.
+- Node.js LTS compatível com o projeto. Na data de referência, Node.js 22 é
+  uma linha LTS disponível. O README do projeto exige Node.js 20 ou superior;
+  Node.js 20 encerrou o suporte em março de 2026, portanto não é recomendado
+  para uma instalação nova.
+- npm, normalmente incluído com Node.js.
+- PostgreSQL em versão ainda suportada pelo projeto PostgreSQL. Na data de
+  referência, PostgreSQL 16, 17 e 18 estão dentro do período de suporte.
+- Git para baixar atualizações do repositório.
+- Proxy reverso com HTTPS, como Nginx, se a organização não já fornecer um.
+- Um gerenciador de serviço para iniciar a aplicação com o sistema, por
+  exemplo systemd. Ele não é dependência do código, mas é recomendado para
+  manter o serviço após reinicializações.
+
+Instale PostgreSQL na própria VM ou use um servidor de banco separado. Se
+estiver em outro servidor, libere a porta do banco somente entre os endereços
+da aplicação e do banco; não exponha PostgreSQL diretamente à Internet.
+
+4. PORTAS E ENDEREÇOS
+---------------------
+Configuração observada nesta máquina:
+- Aplicação web: porta 3001 nos scripts npm run dev e npm start.
+- PostgreSQL da conexão local .env: host localhost, porta 3000,
+  banco lab_reservas, usuário postgres.
+- A porta 3000 do PostgreSQL é uma configuração desta máquina. A porta
+  padrão normalmente usada pelo PostgreSQL é 5432.
+
+Na VM, o endereço localhost significa a própria VM. Se aplicação e banco
+ficarem juntos, uma configuração usual é:
+- Aplicação: escuta internamente na porta 3001.
+- PostgreSQL: escuta em 127.0.0.1:5432.
+- Usuários acessam por HTTPS na porta 443, via proxy reverso.
+
+Se o banco estiver em outro servidor, substitua localhost pelo endereço
+privado desse servidor e use a porta configurada nele.
+
+5. INFORMAÇÕES DO BANCO
+-----------------------
+Banco atual, conforme .env verificado sem revelar a senha:
+- Tipo: PostgreSQL.
+- Host atual: localhost.
+- Porta atual: 3000.
+- Nome do banco: lab_reservas.
+- Usuário atual: postgres.
+- Senha: definida apenas no .env local; não incluída neste documento.
+
+Configuração recomendada em produção, para aplicação e PostgreSQL na mesma
+VM (substitua os valores de exemplo; não copie uma senha literal deste guia):
+
+DATABASE_URL="postgresql://reservalab_app:SENHA_FORTE_ALEATORIA@127.0.0.1:5432/lab_reservas?schema=public"
+
+Crie o banco e um usuário de aplicação com privilégios mínimos. O usuário
+administrador do PostgreSQL pode ser necessário durante a instalação para
+criar banco, usuário e extensão btree_gist. A aplicação em execução não deve
+usar a conta superusuária postgres.
+
+Outras variáveis obrigatórias no ambiente da aplicação:
+- SESSION_SECRET: valor aleatório e exclusivo por ambiente, com pelo menos
+  32 caracteres. Não reutilize o segredo de desenvolvimento.
+- ADMIN_EMAIL: email da conta administrativa inicial.
+- ADMIN_INITIAL_PASSWORD: senha inicial forte, com pelo menos 12 caracteres.
+
+Guarde esses valores em um arquivo .env fora do Git, em um gerenciador de
+segredos ou nas variáveis seguras do serviço. Restrinja as permissões de
+leitura ao usuário que executa a aplicação. Nunca os coloque em commits,
+prints, issues ou mensagens públicas.
+
+6. FLUXO DE INSTALAÇÃO
+----------------------
+1. Atualize o sistema operacional e instale Node.js LTS, Git e PostgreSQL.
+2. Crie o banco lab_reservas e o usuário de aplicação com senha forte.
+3. Obtenha o código do repositório GitHub privado/institucional.
+4. Crie o .env na VM e configure DATABASE_URL, SESSION_SECRET, ADMIN_EMAIL
+   e ADMIN_INITIAL_PASSWORD.
+5. Instale dependências a partir do package-lock.json usando npm ci.
+6. Gere o Prisma Client: npx prisma generate.
+7. Aplique o schema conforme o procedimento de implantação escolhido.
+8. Aplique prisma/constraints.sql com uma conta autorizada. Essa etapa cria
+   a extensão btree_gist e as restrições contra reservas sobrepostas.
+9. Execute o seed apenas se a instalação precisar dos dados iniciais.
+10. Gere a aplicação com npm run build.
+11. Inicie com npm start sob um serviço persistente, ouvindo na porta 3001.
+12. Configure proxy reverso, domínio e HTTPS; mantenha o banco sem acesso
+    público e valide backup e restauração.
+
+Não execute seed em um banco que já contenha dados sem conferir antes o
+conteúdo de prisma/seed.ts e o efeito esperado.
+
+7. PUBLICAÇÃO NO GITHUB
+-----------------------
+O projeto ainda não está no GitHub e esta pasta não tem .git nem remoto.
+Antes de enviar, crie um repositório privado da instituição, revise os
+arquivos que serão versionados e confira que .env, node_modules, .next,
+arquivos de log e arquivos tsbuildinfo estão ignorados.
+
+O arquivo .env.example é apropriado para o repositório porque contém apenas
+nomes de variáveis e valores de exemplo. Não substitua os exemplos por
+credenciais reais. Se um segredo já tiver sido publicado, troque-o; apagar
+o arquivo do último commit não o remove do histórico do Git.
+
+8. ERRO EPERM NO BUILD DO WINDOWS
+---------------------------------
+A tentativa feita nesta máquina parou em "prisma generate" com erro EPERM ao
+renomear query_engine-windows.dll.node. O processo não completou o build.
+Feche servidores Node/Next e ferramentas que possam estar usando a engine,
+confira se antivírus ou indexador está bloqueando o arquivo e tente novamente.
+Uma compilação feita na VM Linux evita a engine Windows e é a verificação mais
+próxima do ambiente final.
+
+9. FONTES OFICIAIS PARA VERSÕES
+-------------------------------
+Node.js releases: https://nodejs.org/en/about/previous-releases
+Política de suporte do PostgreSQL: https://www.postgresql.org/support/versioning/
+Documentação de administração Proxmox VE: https://pve.proxmox.com/pve-docs/
+
+============================================================
+Este documento descreve a configuração observada e uma proposta de instalação.
+Ele não contém senha do banco. Valores e portas da VM precisam ser definidos
+pela equipe responsável pela infraestrutura.

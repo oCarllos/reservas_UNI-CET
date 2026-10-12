@@ -1,0 +1,135 @@
+RESERVALAB — COMO O SISTEMA FOI CONSTRUÍDO
+============================================================
+
+VISÃO GERAL
+-----------
+O ReservaLab é uma aplicação web institucional para gerenciamento de
+reservas de laboratórios e equipamentos. O projeto reúne a interface, as
+regras do sistema e as rotas de servidor em uma única aplicação Next.js.
+Os dados são persistidos em um banco PostgreSQL.
+
+TECNOLOGIAS E LINGUAGENS
+------------------------
+- Linguagem principal: TypeScript.
+- Interface: React 19.
+- Aplicação web e servidor: Next.js 15, usando App Router.
+- Estilos: CSS, com folhas globais e estilos de interação.
+- Banco de dados: PostgreSQL.
+- ORM e modelo dos dados: Prisma 6.
+- Validação de dados: Zod.
+- Senhas: bcryptjs.
+- Sessões e tokens JWT: jose.
+- Ícones: Lucide React.
+- Exportação de relatórios: geração de planilha Excel pela aplicação.
+- Gerenciador de dependências: npm.
+
+As versões acima correspondem às dependências instaladas no projeto durante
+a inspeção. O package.json define as dependências e o package-lock.json
+registra as versões resolvidas pelo npm.
+
+ESTRUTURA DO PROJETO
+--------------------
+- src/app: páginas, componentes, formulários e ações do servidor.
+- src/lib: conexão com o banco, autenticação, regras de janela de reserva e
+  geração de planilha.
+- prisma/schema.prisma: modelos e relações do banco de dados.
+- prisma/: scripts de inicialização, dados iniciais e restrições do banco.
+- public/: arquivos estáticos e recursos visuais.
+- .env: variáveis locais, como conexão do banco e segredo de sessão. Esse
+  arquivo contém dados sensíveis e não deve ser publicado ou compartilhado.
+
+O Next.js App Router organiza as páginas por rotas. Há áreas para login,
+reservas, calendário, edição, histórico, relatórios e administração. Ações
+que criam ou alteram dados são executadas no servidor e validam os dados e
+permissões antes de persistir mudanças.
+
+MODELO DE DADOS
+---------------
+O schema do Prisma define os seguintes grupos de dados:
+- Usuários, com nome, email, CPF opcional, senha protegida e perfil.
+- Laboratórios, com código, capacidade, responsável, cor e estado ativo.
+- Cursos.
+- Equipamentos, identificados também por número de patrimônio.
+- Reservas de laboratórios e reservas de equipamentos.
+- Configurações de horário e períodos bloqueados.
+- Registros de auditoria, para ações realizadas no sistema.
+
+As reservas guardam data, horário de início e término, responsável,
+finalidade, curso/turma quando aplicável e observações. O PostgreSQL mantém
+os registros; a área de histórico apresenta reservas anteriores.
+
+AUTENTICAÇÃO E PERMISSÕES
+-------------------------
+- As senhas são armazenadas como hashes bcrypt, não como texto simples.
+- A sessão usa token JWT em cookie HttpOnly e SameSite=Lax.
+- O servidor consulta o usuário e verifica seu perfil ao executar operações
+  protegidas.
+- Ações administrativas exigem perfil apropriado.
+- O acesso para editar ou cancelar reservas depende do perfil e da relação
+  do usuário com a reserva.
+
+RESERVAS E CONFLITOS DE HORÁRIO
+-------------------------------
+O servidor valida as informações da reserva e verifica conflitos. O banco
+também possui restrições para impedir horários sobrepostos, inclusive em
+operações concorrentes. Os horários de funcionamento e a duração dos slots
+são configuráveis no sistema.
+
+RELATÓRIOS
+----------
+A área de relatórios consolida dados cadastrados no sistema. A aplicação
+calcula indicadores a partir dos registros existentes e gera planilhas Excel
+por meio de uma rota do servidor.
+
+COMO EXECUTAR
+-------------
+Requisitos descritos no README:
+- Node.js 20 ou superior.
+- PostgreSQL 14 ou superior.
+
+Fluxo geral de instalação:
+1. Criar um banco PostgreSQL.
+2. Configurar o arquivo .env com a URL do banco e segredos necessários.
+3. Instalar as dependências com npm.
+4. Gerar o Prisma Client e sincronizar o schema com o banco.
+5. Aplicar as restrições SQL de conflito de reservas.
+6. Executar o seed para os dados iniciais, quando desejado.
+7. Iniciar a aplicação web.
+
+Os scripts disponíveis estão no package.json. O servidor web está configurado
+para a porta 3001 nos scripts de desenvolvimento e inicialização.
+
+BANCO E PORTAS NESTE AMBIENTE
+-----------------------------
+Na inspeção anterior, a conexão da aplicação estava apontada para PostgreSQL
+local na porta 3000. Essa é uma configuração desta máquina; o PostgreSQL
+frequentemente usa a porta 5432 por padrão, mas a porta real depende da
+instalação e da configuração do serviço.
+
+HOSPEDAGEM EM SERVIDOR OU VM
+----------------------------
+O sistema pode ser hospedado em um servidor Linux ou em uma máquina virtual
+com Node.js, PostgreSQL, armazenamento persistente e conectividade entre a
+aplicação e o banco. Para uso institucional, a implantação deve configurar
+HTTPS, manter os segredos fora do código, restringir o acesso de rede ao
+PostgreSQL e realizar backups testados.
+
+Não foi encontrada configuração de Docker, pipeline automatizada de
+implantação ou provedor de hospedagem dentro deste projeto. Esses recursos
+podem ser adicionados separadamente para padronizar a instalação e as
+atualizações.
+
+OBSERVAÇÕES DE SEGURANÇA
+-----------------------
+Foi produzido um relatório de auditoria separado, com controles observados,
+limitações da verificação e pontos que merecem atenção. Entre os temas
+identificados estão o privilégio da conta do PostgreSQL usada pela aplicação,
+senhas iniciais padrão em alguns fluxos e proteção contra tentativas repetidas
+de login. A inspeção não aplicou alterações no sistema.
+
+Arquivo do relatório:
+RELATORIO-AUDITORIA-SEGURANCA-CETRES-2026-10-12.md
+
+============================================================
+Documento elaborado com base na estrutura e configuração encontradas no
+projeto ReservaLab em 12/10/2026.

@@ -1,0 +1,7 @@
+import { cookies } from 'next/headers'; import { SignJWT, jwtVerify } from 'jose'; import { redirect } from 'next/navigation'; import { db } from './db';
+const secret=()=>{const value=process.env.SESSION_SECRET;if(!value&&process.env.NODE_ENV==='production')throw new Error('SESSION_SECRET must be configured in production');return new TextEncoder().encode(value||'development-secret-change-this-32-chars');};
+export async function issueSession(id:string){const token=await new SignJWT({sub:id}).setProtectedHeader({alg:'HS256'}).setIssuedAt().setExpirationTime('7d').sign(secret());(await cookies()).set('session',token,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:604800});}
+export async function currentUser(){try{const token=(await cookies()).get('session')?.value;if(!token)return null;const {payload}=await jwtVerify(token,secret());if(!payload.sub)return null;return db.user.findUnique({where:{id:payload.sub}})}catch{return null}}
+export async function requireUser(){const user=await currentUser();if(!user||!user.active)redirect('/login');if(user.mustChangePassword)redirect('/alterar-senha');return user;}
+export async function requireAdmin(){const user=await requireUser();if(user.role!=='ADMIN')redirect('/dashboard');return user;}
+export async function getPrimaryAdminId(){const primary=await db.user.findFirst({where:{role:'ADMIN',deletedAt:null},orderBy:[{createdAt:'asc'},{id:'asc'}],select:{id:true}});return primary?.id??null;}

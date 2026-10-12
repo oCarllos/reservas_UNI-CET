@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  PROFESSOR
+  COORDENADOR
+  GESTOR
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id                 String        @id @default(uuid()) @db.Uuid
+  fullName           String        @map("full_name")
+  email              String        @unique
+  cpf                String?       @unique
+  registration       String?
+  role               UserRole      @default(PROFESSOR)
+  passwordHash       String        @map("password_hash")
+  mustChangePassword Boolean       @default(true) @map("must_change_password")
+  active             Boolean       @default(true)
+  deletedAt          DateTime?     @map("deleted_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  lastLoginAt        DateTime?     @map("last_login_at")
+  reservations       Reservation[]
+  equipmentReservations EquipmentReservation[]
+  logs               AuditLog[]
+
+  @@map("users")
+}
+
+model Laboratory {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  code          String?       @unique
+  description   String?
+  capacity      Int?
+  computerCount Int?          @map("computer_count")
+  responsible   String?       @map("location")
+  equipment     String?
+  color         String        @default("#4f6bed")
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  reservations  Reservation[]
+
+  @@map("laboratories")
+}
+
+model Reservation {
+  id              String            @id @default(uuid()) @db.Uuid
+  laboratoryId    String            @map("laboratory_id") @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  reservationDate DateTime          @map("reservation_date") @db.Date
+  startTime       String            @map("start_time")
+  endTime         String            @map("end_time")
+  purpose         String?
+  course          String?
+  className       String?           @map("class_name")
+  studentCount    Int?              @map("student_count")
+  notes           String?
+  status          ReservationStatus @default(CONFIRMED)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  laboratory      Laboratory        @relation(fields: [laboratoryId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@index([laboratoryId, reservationDate])
+  @@index([userId])
+  @@index([reservationDate])
+  @@map("reservations")
+}
+
+model Course {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("courses")
+}
+
+model Equipment {
+  id              String                 @id @default(uuid()) @db.Uuid
+  name            String
+  patrimonyNumber String                 @unique @map("patrimony_number")
+  active          Boolean                @default(true)
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  reservations    EquipmentReservation[]
+
+  @@index([name])
+  @@map("equipment")
+}
+
+model EquipmentReservation {
+  id              String            @id @default(uuid()) @db.Uuid
+  equipmentId     String            @map("equipment_id") @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  reservationDate DateTime          @map("reservation_date") @db.Date
+  startTime       String            @map("start_time")
+  endTime         String            @map("end_time")
+  purpose         String
+  notes           String?
+  status          ReservationStatus @default(CONFIRMED)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  equipment       Equipment         @relation(fields: [equipmentId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@index([equipmentId, reservationDate])
+  @@index([userId])
+  @@map("equipment_reservations")
+}
+
+model ScheduleSetting {
+  id                  Int      @id @default(1)
+  openingTime         String   @default("08:00")
+  closingTime         String   @default("20:00")
+  slotDurationMinutes Int      @default(120)
+  updatedAt           DateTime @updatedAt
+
+  @@map("schedule_settings")
+}
+
+model BlockedPeriod {
+  id        String  @id @default(uuid()) @db.Uuid
+  startTime String  @map("start_time")
+  endTime   String  @map("end_time")
+  reason    String
+  active    Boolean @default(true)
+
+  @@map("blocked_periods")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  action      String
+  entity      String
+  entityId    String?  @map("entity_id")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
